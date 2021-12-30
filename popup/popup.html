@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Steam User Manager</title>
+	<link rel="shortcut icon" href="/icon128.png" type="image/x-icon">
+	<link rel="stylesheet" type="text/css" href="popup.css">
+	<link rel="stylesheet" type="text/css" href="/round_menu/style.css">
+</head>
+<body>
+	<div class="global_block">
+		<div class="left_block">
+			<div class="head_block"></div>
+		</div>
+		<div class="right_block">
+			<div class="head_block">
+				<img src="svg/add_acc.svg" data-type="add_acc">
+				<img src="svg/setting.svg" data-type="setting" style="display: none;">
+				<img src="svg/start.svg" data-type="start" style="display: none;">
+				<img src="svg/close.svg" data-type="close">
+				<input id="search_acc" type="text" name="search">
+				<img class="logo" src="svg/sum.svg">
+			</div>
+			<div class="users"></div>
+		</div>
+		<div id="background"></div>
+		<div id="menu">
+			<div id="twofa">
+				<div id="code"></div>
+				<img id="copy" src="svg/copy.svg"></img>
+				<div class="line"></div>
+			</div>
+			<div value="confirm">Confirmation</div>
+			<div value="switch">Switch to this Account</div>
+			<div value="new_tab">Open in new tab</div>
+			<div value="re_auth">Reauthorize</div>
+			<div value="edit_acc">Edit Account</div>
+			<div value="clear_data">Clear Database</div>
+			<div value="del_acc">Delete Account</div>
+		</div>
+		<form id="account">
+			<div class="close"></div>
+			<div class="heading" data-edit="editing an account" data-add="adding an account"></div>
+			<label for="account_name">Login</label>
+			<input id="account_name" type="text" name="account_name" autocomplete="off" readonly="">
+			<label for="password">Password</label>
+			<input id="password" type="password" name="password" autocomplete="off">
+			<div class="info" data-after="Shared secret" data-before="needed to generate 2FA code"></div>
+			<label for="twofa" data-maxlength="40" data-type="password" data-name="shared_secret">Shared secret</label>
+			<span>or</span>
+			<label for="twofa" data-maxlength="7" data-type="text" data-name="twofacode">2FA</label>
+			<input id="twofa" type="password" name="shared_secret" autocomplete="off" disabled="">
+			<div class="info" data-after="Identity secret" data-before="It is needed to confirm the exchange, placing lots on the trading platform and actions related to changing the SIM card, etc."></div>
+			<label for="identity_secret">Identity secret</label>
+			<input id="identity_secret" type="password" name="identity_secret" autocomplete="off" maxlength="40" disabled="">
+			<div class="info" data-after="Device ID" data-before="The device identifier, like Identity secret, is needed to confirm the exchange, etc., if you leave the field empty, the extension will generate it"></div>
+			<label for="device_id">Device ID</label>
+			<input id="device_id" type="password" name="device_id" autocomplete="off" maxlength="40" disabled="">
+			<input name="import_maFile" type="file" hidden="">
+			<div class="button" id="import_maFile">Import maFile</div>
+			<div class="button" id="save" data-edit="Save" data-add="Adding"></div>
+		</form>
+		<div class="dialog">
+			<div class="close"></div>
+			<div class="heading"></div>
+			<div class="content"></div>
+			<input name="twofa" autocomplete="off" maxlength="7" type="text">
+			<div class="button"></div>
+			<div class="LoadingWrapper" style="display: none;">
+			    <div class="LoadingThrobber">
+			        <div class="Bar Bar1"></div>
+			        <div class="Bar Bar2"></div>
+			        <div class="Bar Bar3"></div>
+			    </div>
+			</div>
+		</div>
+		<div class="round_menu">
+		    <div class="rm_block">
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="0">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="1">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="2">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="3">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="4">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="5">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="6">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="7">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="8">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		    </div>
+		    <div class="rm_block">
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="9">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="10">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="11">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="12">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="13">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="14">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="15">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="16">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		        <div class="rm_segment">
+		            <div class="rm_hover" data-type="add" data-n="17">
+		                <img class="rm_img ico" src="/round_menu/svg/add.svg">
+		                <img class="rm_img favicon">
+		            </div>
+		        </div>
+		    </div>
+		    <div class="rm_info">
+		        <div class="rm_block">
+		            <div class="rm_segment disabled">
+		                <div class="rm_hover">
+		                    <img class="rm_img ico">
+		                </div>
+		            </div>
+		            <div class="rm_segment">
+		                <div class="rm_hover" data-type="go_over">
+		                    <img class="rm_img ico" src="/round_menu/svg/go_over.svg">
+		                </div>
+		            </div>
+		            <div class="rm_segment disabled">
+		                <div class="rm_hover">
+		                    <img class="rm_img ico">
+		                </div>
+		            </div>
+		        </div>
+		        <div class="rm_block">
+		            <div class="rm_segment">
+		                <div class="rm_hover" data-type="remove_link">
+		                    <img class="rm_img ico" src="/round_menu/svg/remove_link.svg">
+		                </div>
+		                <div class="rm_hover" data-type="cancel">
+		                    <img class="rm_img ico" src="/round_menu/svg/cancel.svg">
+		                </div>
+		            </div>
+		            <div class="rm_segment">
+		                <div class="rm_hover" data-type="clean_db">
+		                    <img class="rm_img ico" src="/round_menu/svg/clean_db.svg">
+		                </div>
+		            </div>
+		            <div class="rm_segment">
+		                <div class="rm_hover" data-type="edit_link">
+		                    <img class="rm_img ico" src="/round_menu/svg/edit_link.svg">
+		                </div>
+		                <div class="rm_hover" data-type="confirm">
+		                    <img class="rm_img ico" src="/round_menu/svg/confirm.svg">
+		                </div>
+		            </div>
+		        </div>
+		        <img class="rm_img add_link" src="/round_menu/svg/add_link.svg">
+		        <img class="rm_img clean_db" src="/round_menu/svg/clean_db.svg">
+		        <img class="rm_img edit_link" src="/round_menu/svg/edit_link.svg">
+		        <img class="rm_img remove_link" src="/round_menu/svg/remove_link.svg">
+		        <input class="rm_link" type="text" name="link">
+		    </div>
+		</div>
+	</div>
+	<script type="text/javascript" src="/q.js"></script>
+	<script type="text/javascript" src="/req.js"></script>
+	<script type="text/javascript" src="popup.js"></script>
+</body>
+</html>
