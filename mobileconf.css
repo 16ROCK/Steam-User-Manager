@@ -1,0 +1,110 @@
+::-webkit-scrollbar{
+	width: 14px;
+	background: transparent;
+	z-index: 12;
+}
+
+::-webkit-scrollbar-thumb{
+	width: 10px;
+	background-color: #434953;
+	border-radius: 10px;
+	z-index: 12;
+	border: 4px solid rgba(0,0,0,0);
+	background-clip: padding-box;
+	transition: background-color .32s ease-in-out;
+	margin: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+	background: #4e5157
+}
+
+::-webkit-scrollbar-corner{
+	background: #202020;
+}
+
+body{
+	overflow: hidden;
+}
+
+.responsive_header{
+	color: #fff;
+	display: block;
+	cursor: pointer;
+}
+
+.responsive_header:after{
+	content: 'Refresh';
+}
+
+.responsive_page_content{
+	height: calc(100vh - 110px);
+	overflow: auto;
+	margin-top: 44px;
+}
+
+#mobileconf_list{
+	display: block;
+}
+
+#mobileconf_empty{
+	margin-top: 60px;
+}
+
+#mobileconf_details{
+	margin-top: 42px;
+}
+
+#mobileconf_details>.mobileconf_trade_area>.tradeoffer{
+	padding: 2%;
+}
+
+#mobileconf_buttons{
+	line-height: 66px;
+}
+
+@media screen and (max-height: 360px){
+	.responsive_header{
+		position: fixed;
+	}
+}
+
+#select_all{
+	background-color: #171a21;
+    box-shadow: 0 0 7px 0 rgb(0 0 0 / 75%);
+    cursor: pointer;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-align: center;
+    color: #fff;
+    line-height: 66px;
+}
+
+#select_all:after{
+	content: 'Select all';
+}
+
+#global_header, #footer, #responsive_page_menu, .responsive_header_content{
+	display: none;
+}
+
+.responsive_page_template_content{
+	font-family: "Motiva Sans", Sans-serif;
+	font-weight: 200;
+	color: #ffffff;
+	padding-bottom: 0;
+	min-height: 0;
+}
+
+@media screen and (min-width: 590px){
+	.item_desc_description
+	{
+		float: left;
+		width: auto;
+	}
+	#confiteminfo_content{
+		padding: 238px 11px 11px 11px;
+	}
+}
