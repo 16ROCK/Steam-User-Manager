@@ -1,1 +1,0 @@
-Array.from = __PrototypePreserve[0] || Array.from; Function.prototype.bind = __PrototypePreserve[1] || Function.prototype.bind;
