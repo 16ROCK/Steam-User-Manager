@@ -308,8 +308,8 @@
             httpOnly = /;\s*httponly;?/i.test(strCookie),
             hostOnly = !domain2;
             domain2 = domain2 || domain,
-            expirationDate = expires || max_age;
-            session = !expirationDate;
+            expirationDate = expires != null ? expires : max_age;
+            session = expirationDate == null;
 
             cookie = {
                 domain: domain2,
@@ -349,7 +349,7 @@
         }
     };
 	let accounts = {}, ids = {}, tabs = {}, urls = ['steamcommunity.com', '.steampowered.com', 'steam.tv'], requestIds = {};
-	create_tabs = (id, url = `https://${urls[0]}/my/`, cb = () => null) => chrome.tabs.create({url, active: true}, tab => {
+	create_tabs = (id, url = `https://${urls[0]}/my/`, active = true, cb = () => null) => chrome.tabs.create({url, active: active}, tab => {
 		tabs[tab.id] = {'0': {id}};
 		cb(tab);
 	}),
@@ -447,7 +447,6 @@
 				}
 			}).fail(data => cb({success: false, message: 'Undefined error'}));
 		};
-		account.cookies = account.cookies.filter(cookie => !(cookie.domain == 'steamcommunity.com' && cookie.name == `steamMachineAuth${account.steamid}`));
 		if(account.shared_secret){
 			genAuthCode(account.shared_secret).then(code => getrsakey(code));
 		}else{
@@ -577,7 +576,7 @@
 	    host = url.hostname,
 	    tab = tabs[details.tabId],
 	    id = requestIds[details.requestId];
-		if((id || tab) && /^https?:$/.test(url.protocol) && [...accounts[id || tab[0].id].urls.map(url => url.hostname), ...urls].some(url => checkDomain(d(host), d(url)))){
+		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id].urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
 	        let index = details.requestHeaders.findIndex(header => /^cookie$/i.test(header.name));
 	        if(index < 0){
 	            index = details.requestHeaders.length;
@@ -608,12 +607,35 @@
 	    if(id){
 	    	delete requestIds[details.requestId];
 	    }
-		if((id || tab) && /^https?:$/.test(url.protocol) && [...accounts[id || tab[0].id].urls.map(url => url.hostname), ...urls].some(url => checkDomain(d(host), d(url)))){
-			for(let header of details.responseHeaders){
-			    if(/^set-cookie$/i.test(header.name)){
-			        cookies.set(id || tab[0].id, false, url.protocol, url.hostname, url.pathname, header.value);
-			    }
-			}
+		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id].urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
+            let items = details.responseHeaders.filter(header => /^set-cookie$/i.test(header.name)).map(header => cookies.set(id || tab[0].id, false, url.protocol, url.hostname, url.pathname, header.value))
+            if(items.length){
+                for(let tabId in tabs){
+                    for(let frameId in tabs[tabId]){
+                        if(details.tabId != tabId || details.frameId != frameId){
+                            if(tabs[tabId][frameId].id == (id || tab[0].id) && tabs[tabId][frameId].hostname){
+                                let cookie = items.filter(cookie => {
+                                    if(checkDomain(d(tabs[tabId][frameId].hostname), d(cookie.domain), cookie.hostOnly)){
+                                        if(checkPath(p(tabs[tabId][frameId].pathname), p(cookie.path))){
+                                            if(!cookie.httpOnly && (!cookie.secure || tabs[tabId][frameId].protocol == 'https:')){
+                                                return true;
+                                            }
+                                        }
+                                    }
+                                    return false;
+                                });
+                                if(cookie.length){
+                                    chrome.tabs.sendMessage(Number(tabId), {
+                                        type: 'cookies',
+                                        event: 'setItems',
+                                        items: cookie
+                                    }, {frameId: Number(frameId)});
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 			return {responseHeaders: details.responseHeaders.filter(header => !/^set-cookie$/i.test(header.name))};
 		}
 	}, {urls: []}, ['blocking', 'extraHeaders', 'responseHeaders']);
@@ -628,21 +650,25 @@
 		        origin = url.origin,
 		        suffix = [hostname];
 				if(message == 'onCompleted'){
-		            for(let i = 1; i <= hostname.match(/\./g).length; i++){
-						suffix.push(suffix[i - 1].replace(/^[^\.]*\./, ''));
-		            }
-		            suffix = suffix.filter(suffix => checksuffix(suffix));
-		            tab.origin = origin;
-		            tab.protocol = url.protocol;
-		            tab.pathname = url.pathname;
-		            tab.hostname = url.hostname;
-		            let storage = account.storage;
-			    	sendResponse({
-			            localStorage: storage.local[origin] || {},
-			            sessionStorage: storage.session[origin] || {},
-			            suffix: suffix,
-			            cookies: cookies.getAll(tab.id, tab.hostname, tab.pathname, tab.protocol, true, tab.method, tab.type, tab.initiator)
-			        });
+                    if(account.urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(hostname), d(url)))){
+                        for(let i = 1; i <= hostname.match(/\./g).length; i++){
+                            suffix.push(suffix[i - 1].replace(/^[^\.]*\./, ''));
+                        }
+                        suffix = suffix.filter(suffix => checksuffix(suffix));
+                        tab.origin = origin;
+                        tab.protocol = url.protocol;
+                        tab.pathname = url.pathname;
+                        tab.hostname = url.hostname;
+                        let storage = account.storage;
+                        sendResponse({
+                            localStorage: storage.local[origin] || {},
+                            sessionStorage: storage.session[origin] || {},
+                            suffix: suffix,
+                            cookies: cookies.getAll(tab.id, tab.hostname, tab.pathname, tab.protocol, true, tab.method, tab.type, tab.initiator)
+                        });
+                    }else{
+                        sendResponse(null);
+                    }
 			    }
 			    if(/^(localStorage|sessionStorage)$/.test(message.type)){
 		            let storage = account.storage[message.type == 'localStorage' ? 'local' : 'session'][url.origin];
@@ -670,28 +696,40 @@
 		                chrome.tabs.sendMessage(tab.tabId, message, {frameId: tab.frameId});
 		            }
 			    }
-		        if(message.type == 'cookies' && message.cookie){
-		            let cookie = cookies.set(tab.id, true, tab.protocol, tab.hostname, tab.pathname, message.value);
-		            if(cookie){
-		                chrome.storage.local.set({accounts});
-		                delete message.initiator;
-		                let accountTabIds = [];
-						for(let tabId in tabs){
-						    for(let frameId in tabs[tabId]){
-						        if((sender.tab.id != tabId || sender.frameId != frameId) && tabs[tabId][frameId].id == tab.id && tabs[tabId][frameId].hostname && [...account.urls.map(url => url.hostname), ...urls].some(url => checkDomain(d(tabs[tabId][frameId].hostname), d(url))) && checkDomain(d(tabs[tabId][frameId].hostname), d(cookie.domain), cookie.hostOnly) && checkPath(p(tabs[tabId][frameId].pathname), p(cookie.path)) && (!cookie.secure || tabs[tabId][frameId].protocol == 'https:')){
-						            accountTabIds.push({tabId: Number(tabId), frameId: Number(frameId)});
-						        }
-						    }
-						}
-			            delete message.initiator;
-			            for(let tab of accountTabIds){
-			                chrome.tabs.sendMessage(tab.tabId, message, {frameId: tab.frameId});
-			            }
-		            }
-		        }
+                if(message.type == 'cookies' && message.event == 'setItems'){
+                    let items = message.items.map(value => cookies.set(tab.id, true, tab.protocol, tab.hostname, tab.pathname, value)).filter(cookie => cookie);
+                    if(items.length){
+                        for(let tabId in tabs){
+                            for(let frameId in tabs[tabId]){
+                                if(sender.tab.id != tabId || sender.frameId != frameId){
+                                    if(tabs[tabId][frameId].id == tab.id && tabs[tabId][frameId].hostname){
+                                        let cookie = items.filter(cookie => {
+                                            if(checkDomain(d(tabs[tabId][frameId].hostname), d(cookie.domain), cookie.hostOnly)){
+                                                if(checkPath(p(tabs[tabId][frameId].pathname), p(cookie.path))){
+                                                    if((!cookie.secure || tabs[tabId][frameId].protocol == 'https:')){
+                                                        return true;
+                                                    }
+                                                }
+                                            }
+                                            return false;
+                                        });
+                                        if(cookie.length){
+                                            chrome.tabs.sendMessage(Number(tabId), {
+                                                type: 'cookies',
+                                                event: 'setItems',
+                                                items: cookie,
+                                                initiator: chrome.runtime.id
+                                            }, {frameId: Number(frameId)});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 			}else{
 				if(message == 'onCompleted'){
-					sendResponse(false);
+					sendResponse(null);
 				}
 			}
 		}else{
@@ -728,6 +766,7 @@
 				    login: accounts[ids[id]].login,
 				    lvl: accounts[ids[id]].level,
 				    name: accounts[ids[id]].name,
+                    tabs: accounts[ids[id]].urls.map(tab => tab.n),
 				    secret: {
 				    	identity: accounts[ids[id]].identity_secret ? true : false,
 				    	shared: accounts[ids[id]].shared_secret ? true : false
@@ -748,7 +787,8 @@
 	        }
 	        if(message.type == 'go_over'){
 	        	let id = ids[message.id];
-	        	create_tabs(id, message.link || `https://${urls[0]}/my/`, tab => {
+                accounts[id].urls.sort((a, b) => a.n == message.n ? -1 : b.n == message.n ? 1 : 0);
+	        	create_tabs(id, message.link || `https://${urls[0]}/my/`, message.active, tab => {
 	        		if(!message.link){
 		        		logged_in(id, logged_in => {
 		        			if(!logged_in && accounts[id] && accounts[id].shared_secret){
@@ -815,20 +855,23 @@
 	            delete account.storage.local[url.origin];
 	            delete account.storage.session[url.origin];
 	            account.cookies = account.cookies.filter(cookie => !checkDomain(d(host), d(cookie.domain), cookie.hostOnly));
+                chrome.storage.local.set({accounts});
 				for(let tabId in tabs){
 				    for(let frameId in tabs[tabId]){
-				    	let tab = tabs[tabId][frameId];
-				        if(tab.origin == url.origin){
-					        chrome.tabs.sendMessage(Number(tabId), {type: 'localStorage', event: 'clear'}, {frameId: Number(frameId)});
-					        chrome.tabs.sendMessage(Number(tabId), {type: 'localStorage', event: 'clear'}, {frameId: Number(frameId)});
-				        }
-				        if(tab.hostname && checkDomain(d(tab.hostname), d(host))){
-				        	chrome.tabs.sendMessage(Number(tabId), {
-				        		type: 'cookies',
-				        		event: 'setItems',
-				        		cookies: cookies.getAll(tab.id, tab.hostname, tab.pathname, tab.protocol, true, tab.method, tab.type, tab.initiator)
-				        	}, {frameId: Number(frameId)});
-				        }
+                        if(tabs[tabId][frameId].id == ids[message.id]){
+    				    	let tab = tabs[tabId][frameId];
+    				        if(tab.origin == url.origin){
+    					        chrome.tabs.sendMessage(Number(tabId), {type: 'localStorage', event: 'clear'}, {frameId: Number(frameId)});
+    					        chrome.tabs.sendMessage(Number(tabId), {type: 'sessionStorage', event: 'clear'}, {frameId: Number(frameId)});
+    				        }
+    				        if(tab.hostname && checkDomain(d(tab.hostname), d(host))){
+    				        	chrome.tabs.sendMessage(Number(tabId), {
+    				        		type: 'cookies',
+    				        		event: 'clear',
+    				        		host
+    				        	}, {frameId: Number(frameId)});
+    				        }
+                        }
 				    }
 				}
 	        }

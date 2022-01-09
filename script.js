@@ -13,8 +13,18 @@ chrome.runtime.sendMessage('onCompleted', response => {
 
             new MutationObserver(records  => {
                 if(messages.active){
-                    for(let data of records.filter(record => record.addedNodes.length).map(record => JSON.parse(record.addedNodes[0].textContent))){
+                    for(let data of records.filter(record => record.addedNodes.length).map(record => JSON.parse(record.addedNodes[0].textContent)).filter(item => item.type != 'cookies')){
                         chrome.runtime.sendMessage(data);
+                    }
+
+                    let items = records.filter(record => record.addedNodes.length).map(record => JSON.parse(record.addedNodes[0].textContent));
+                    items = items.filter(item => item.type == 'cookies').map(item => item.value);
+                    if(items.length){
+                        chrome.runtime.sendMessage({
+                            type: 'cookies',
+                            event: 'setItems',
+                            items
+                        });
                     }
                 }
                 messages.active = true;
@@ -54,16 +64,12 @@ chrome.runtime.sendMessage('onCompleted', response => {
                     const hostname = '${location.hostname}',
                     pathname = '${location.pathname}',
                     protocol = '${location.protocol}',
-                    suffix = [],
-                    storage = {
-                        localStorage: {
-                            length: 0
-                        },
-                        sessionStorage: {
-                            length: 0
-                        }
-                    };
-
+                    suffix = ${JSON.stringify(response.suffix)},
+                    storage = {};
+                    storage.localStorage = ${JSON.stringify(response.localStorage)};
+                    storage.localStorage.length = Object.keys(storage.localStorage).length;
+                    storage.sessionStorage = ${JSON.stringify(response.sessionStorage)};
+                    storage.sessionStorage.length = Object.keys(storage.sessionStorage).length;
                     let p = p => p.replace(/^\\.*/, '').split(/([\\\/\.])/).filter(p => p), d = d => p(d).reverse();
 
                     function checkDomain(domain1, domain2, hostOnly){
@@ -84,7 +90,7 @@ chrome.runtime.sendMessage('onCompleted', response => {
                         return path1.length >= path2.length
                     };
 
-                    let cookies = [];
+                    let cookies = ${JSON.stringify(response.cookies)};
 
                     let setCookie = strCookie => {
                         strCookie = strCookie.split(';');
@@ -107,8 +113,8 @@ chrome.runtime.sendMessage('onCompleted', response => {
                         let secure = /;\\s*secure;?/i.test(strCookie),
                         httpOnly = /;\\s*httponly;?/i.test(strCookie),
                         hostOnly = !domain,
-                        expirationDate = expires || max_age,
-                        session = !expirationDate;
+                        expirationDate = expires != null ? expires : max_age;
+                        session = expirationDate == null;
                         cookie = {domain, hostOnly, httpOnly, name, path, sameSite, secure, session, storeId: "0", value};
                         if(!session){
                             cookie.expirationDate = expirationDate;
@@ -334,24 +340,28 @@ chrome.runtime.sendMessage('onCompleted', response => {
                             suffix.push(...data.suffix);
                         }
                         if(data.type == 'cookies' && data.event == 'setItems'){
-                            cookies.length = 0;
-                            cookies.push(...data.cookies);
+                            if(cookies.length){
+                                for(let item of data.items){
+                                    let n = cookies.findIndex(cookie => cookie.name == item.name && cookie.domain == item.domain && cookie.path == item.path);
+                                    if(n < 0){
+                                        n = cookies.length;
+                                    }
+                                    cookies[n] = item;
+                                }
+                            }else{
+                                if(data.items.length){
+                                    cookies.push(...data.items);
+                                }
+                            }
                         }
-                        if(data.type == 'cookies' && data.event == 'setCookie'){
-                            setCookie(data.value);
+                        if(data.type == 'cookies' && data.event == 'clear'){
+                            cookies = cookies.filter(cookie => !checkDomain(d(data.host), d(cookie.domain), cookie.hostOnly));
                         }
                     };
                 })();`;
             document.querySelector('html').appendChild(script);
             script.remove();
             messages.remove();
-            for(let name in response){
-                set_messages({
-                    event: 'setItems',
-                    type: name,
-                    [name]: response[name]
-                });
-            }
         })();
     }
 });

@@ -67,7 +67,6 @@ div.head_block>img{
 div.head_block>img.logo{
     height: 32px;
     width: 64px;
-    cursor: default;
     margin: 16px 19px;
 }
 div.head_block>img[data-type="close"]{
@@ -204,16 +203,17 @@ div.login{
     text-indent: 4px;
 }
 img.link{
-    position: absolute;
+    position: relative;
     width: 16px;
     height: 16px;
     padding: 5px;
     backdrop-filter: blur(2px);
     background-color: #00000091;
     border-radius: 25%;
-    left: 98px;
+    left: 97px;
     top: 44px;
     cursor: pointer;
+    margin: 0 1px;
 }
 div.users::-webkit-scrollbar{
 	width: 14px;

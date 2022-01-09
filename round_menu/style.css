@@ -232,8 +232,8 @@ body{
     z-index: 1;
 }
 .round_menu>.rm_info>input.rm_link:not([disabled]){
-	top: 40%;
-	left: calc(3% - 2px);
+	top: 38%;
+	left: calc(3% - 4px);
     border-bottom: 4px #CACACA solid;
 }
 .round_menu>.rm_info>input.rm_link.active{

@@ -1,6 +1,5 @@
 (() => {
-	let accs = [],
-	selected, codeTim, codeInt, lineInt;
+	let active = {}, accs = [], tabs, selected, codeTim, codeInt, lineInt;
 
 	function hrefCheck(href){
 	    try{
@@ -18,12 +17,13 @@
 
 	let rm_hovers = q('.round_menu>.rm_block>.rm_segment>.rm_hover'),
 	rm_info = q('.rm_info'),
-	rm_link = q('.rm_link'),
-	active = {},
-	tabs;
+	rm_link = q('.rm_link');
 
 	function round_menu(id){
 		active.id = id;
+		rm_info.class('rm_info');
+		rm_hovers.class.remove('active');
+		rm_link.class.remove('active').val('').css.text('--max_px: 0px');
 		q('.round_menu>.rm_block>.rm_segment>.rm_hover:not([data-type="menu"])').data('type', 'add').data.remove('link').child('.rm_img.favicon').attr.remove('src');
 		for(let n in tabs[id]){
 			q(`.round_menu>.rm_block>.rm_segment>.rm_hover[data-n="${n}"]`).data('type', 'link').data('link', tabs[id][n].link).child('.rm_img.favicon').attr('src', tabs[id][n].favicon);
@@ -55,6 +55,8 @@
 		add_info();
 	};
 
+	q('img.logo').on('click', () => open(chrome.runtime.getURL('/popup/popup.html')));
+
 	rm_hovers.on('mouseenter', function(){
 		if(!active.confirm){
 			active.target = q(this);
@@ -80,8 +82,15 @@
 		}
 	});
 
-	q('.rm_hover[data-type="go_over"]').on('click', function(){
-		chrome.runtime.sendMessage({type: 'go_over', id: active.id, link: active.data.link});
+	q('.rm_hover[data-type="go_over"]').on('mousedown', function(){
+		if(event.button < 2){
+			chrome.runtime.sendMessage({type: 'go_over', id: active.id, link: active.data.link, n: active.data.n, active: !event.button});
+		}
+		if(!event.button){
+			active.confirm = false;
+			q('.users>.user').class.remove('selected');
+			q('div#background, .round_menu').class.remove('active');
+		}
 	});
 
 	rm_link.on('mousedown', () => {
@@ -121,7 +130,7 @@
 
 	confirm.on('click', function(){
 		if(!confirm.class.has('readonly')){
-			let n = active.data.n, id = active.id;
+			let n = active.data.n, id = active.id, acc = accs.find(acc => acc.id == id);
 			if(active.type == 'add_link' || active.type == 'edit_link'){
 				let href = rm_link.val();
 				href = /^https:\/\//i.test(href) ? href : `https://${href}`;
@@ -129,6 +138,7 @@
 					if(response){
                         for(let n in tabs[id]){
                             if(tabs[id][n].link == href){
+                            	acc.tabs = acc.tabs.filter(tab => tab != n);
                                 delete tabs[id][n];
                                 break;
                             }
@@ -137,6 +147,11 @@
                             link: href,
                             favicon: `chrome://favicon/${new URL(href).origin}`
 						};
+						if(!acc.tabs.some(tab => tab == n)){
+							acc.tabs.push(n);
+						}
+						acc.tabs.sort((a, b) => a == n ? 1 : b == n ? -1 : 0);
+						q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[id][n].favicon}" data-n="${n}">`).join('')}`);
 						round_menu(id);
 						active.confirm = false;
 						hover();
@@ -145,6 +160,8 @@
 			}
 			if(active.type == 'remove_link'){
 				chrome.runtime.sendMessage({type: 'removeHref', n, id});
+				acc.tabs = acc.tabs.filter(tab => tab != n);
+				q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
 				delete tabs[id][n];
 				round_menu(id);
 				active.confirm = false;
@@ -267,7 +284,7 @@
 						<span>${acc.login}</span>
 					</div>
 					<div class="external_links">
-					    <img class="link" src="svg/link.svg">
+					    <img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}
 					</div>
 					<div class="level">
 						<span>Level</span>
@@ -301,13 +318,25 @@
 		        chrome.runtime.sendMessage({type: 'switch', id});
 		    }
 		    if(event.button == 1){
-		        chrome.runtime.sendMessage({type: 'go_over', id});
+		        chrome.runtime.sendMessage({type: 'go_over', id, active: true});
 		    }
 		});
 
-		q('.external_links>.link').on('click', function(){
-		    let id = q(this).parent().parent().class.add('selected').data('id');
-		    round_menu(id);
+		q('.external_links').on('mousedown', '.link', function(event){
+			if(event.button < 2){
+				if(q(this).data('type') == 'round_menu'){
+					if(!event.button){
+				    	round_menu(q(this).parent().parent().class.add('selected').data('id'));
+					}
+				}else{
+					let n = q(this).data('n'),
+					id = q(this).parent().parent().data('id');
+					let acc = accs.find(acc => acc.id == id);
+					acc.tabs.sort((a, b) => a == n ? -1 : b == n ? 1 : 0);
+					q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
+					chrome.runtime.sendMessage({type: 'go_over', id, link: tabs[id][n].link, n, active: !event.button});
+				}
+			}
 		});
 
 		q('.right_block>.users>.user>.interface>div[value="user"]').on('click', function(){
@@ -319,7 +348,7 @@
 
 		q('.right_block>.users>.user>.interface>div[value="open"]').on('click', function(){
 			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'go_over', id});
+			chrome.runtime.sendMessage({type: 'go_over', id, active: true});
 		});
 
 		q('.right_block>.users>.user>.interface>div[value="refresh"]').on('click', function(){
@@ -329,6 +358,7 @@
 	};
 
 	q('div#background, #account>.close, .dialog>.close').on('mousedown', function(){
+		active.confirm = false;
 		q('div#menu, .dialog, div#background, .round_menu').class.remove('active');
 		q('.users>.user').class.remove('selected');
 		q('#account').class.remove('add').class.remove('edit');
@@ -388,7 +418,7 @@
 	});
 
 	q('#menu>[value="new_tab"]').on('click', function(){
-		chrome.runtime.sendMessage({type: 'go_over', id: selected});
+		chrome.runtime.sendMessage({type: 'go_over', id: selected, active: true});
 		selected = undefined;
 	});
 
@@ -608,7 +638,7 @@
 					<span>${acc.login}</span>
 				</div>
 				<div class="external_links">
-					<img class="link" src="svg/link.svg">
+					<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}
 				</div>
 				<div class="level">
 					<span>Level</span>
@@ -621,9 +651,21 @@
 				<img class="menu" src="svg/menu.svg">`);
 		}
 
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.external_links>.link`).on('click', function(){
-		    let id = q(this).parent().parent().class.add('selected').data('id');
-		    round_menu(id);
+		q(`.right_block>.users>.user[data-id="${message.id}"]>.external_links`).on('mousedown', '.link', function(event){
+			if(event.button < 2){
+				if(q(this).data('type') == 'round_menu'){
+					if(!event.button){
+				    	round_menu(q(this).parent().parent().class.add('selected').data('id'));
+					}
+				}else{
+					let n = q(this).data('n'),
+					id = q(this).parent().parent().data('id');
+					let acc = accs.find(acc => acc.id == id);
+					acc.tabs.sort((a, b) => a == n ? -1 : b == n ? 1 : 0);
+					q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
+					chrome.runtime.sendMessage({type: 'go_over', id, link: tabs[id][n].link, n, active: !event.button});
+				}
+			}
 		});
 
 		q(`.right_block>.users>.user[data-id="${message.id}"]`).on('mouseenter', function(event){
@@ -638,12 +680,12 @@
 		q(`.right_block>.users>.user[data-id="${message.id}"]>.avatar, .right_block>.users>.user[data-id="${message.id}"]>.frame`).on('mousedown', function(event){
 		    let id = q(this).parent().data('id');
 		    if(!event.button){
-			delete localStorage.active;
-			q(`.right_block>.users>.user`).class.remove('active');
+				delete localStorage.active;
+				q(`.right_block>.users>.user`).class.remove('active');
 		        chrome.runtime.sendMessage({type: 'switch', id});
 		    }
 		    if(event.button == 1){
-		        chrome.runtime.sendMessage({type: 'go_over', id});
+		        chrome.runtime.sendMessage({type: 'go_over', id, active: true});
 		    }
 		});
 		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="user"]`).on('click', function(){
@@ -654,7 +696,7 @@
 		});
 		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="open"]`).on('click', function(){
 			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'go_over', id});
+			chrome.runtime.sendMessage({type: 'go_over', id, active: true});
 		});
 		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="refresh"]`).on('click', function(){
 			let id = q(this).parent().parent().data('id');
