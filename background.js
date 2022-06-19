@@ -447,6 +447,7 @@
 				}
 			}).fail(data => cb({success: false, message: 'Undefined error'}));
 		};
+        account.cookies = account.cookies.filter(cookie => !(cookie.domain == 'steamcommunity.com' && cookie.name == `steamMachineAuth${account.steamid}`));
 		if(account.shared_secret){
 			genAuthCode(account.shared_secret).then(code => getrsakey(code));
 		}else{
@@ -520,13 +521,13 @@
 		    req('get', `https://${urls[0]}/miniprofile/${accounts[id].accountid}/json`, null, {[`${chrome.runtime.id}_id`]: id}).done(data => {
 		        if(data && data.avatar_url){
 		        	let account = accounts[id];
-		        	cb({
-		        		avatar: account.avatar = data.avatar_url.split('/').slice(6).join('/'),
-		        		frame: account.frame = data.avatar_frame && data.avatar_frame.split('/').slice(6).join('/'),
-		        		level: account.level = data.level,
-		        		name: account.name = data.persona_name,
-		        		video: account.video = data.profile_background && (data.profile_background['video/webm'] || data.profile_background['video/mp4']).split('/').slice(6).join('/')
-		        	});
+                    cb({
+                        avatar: account.avatar = data.avatar_url,
+                        frame: account.frame = data.avatar_frame,
+                        level: account.level = data.level,
+                        name: account.name = data.persona_name,
+                        video: account.video = data.profile_background && (data.profile_background['video/webm'] || data.profile_background['video/mp4'])
+                    });
 		        	chrome.storage.local.set({accounts});
 		        }else{
 		        	cb(null);
