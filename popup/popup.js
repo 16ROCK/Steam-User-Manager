@@ -268,15 +268,15 @@
 			if(acc.login.search(search) >= 0 || (acc.name || 'No Name').search(search) >= 0){
 				users.afterbegin(`<div class="user" data-id="${acc.id}">
 					${acc.video ? `<video playsinline muted loop/>
-						<source src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.video}" type="video/webm">
+						<source src="${acc.video}" type="video/${acc.video.match(/\.([a-z]+)$/)[1]}">
 					</video>` : ''}
 					<div class="interface">
 						<div value="user"></div>
 						<div value="open"></div>
 						<div value="refresh"></div>
 					</div>
-					<img class="avatar" src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.avatar || 'avatars/fe/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}"></img>
-					${acc.frame ? `<img class="frame" src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.frame}">` : ''}
+					<img class="avatar" src="${acc.avatar || 'not_avatar.jpg'}"></img>
+					${acc.frame ? `<img class="frame" src="${acc.frame}">` : ''}
 					<div class="name">
 						<span>${acc.name || 'No Name'}</span>
 					</div>
@@ -622,15 +622,15 @@
 		if(message.type == 'refresh' && accs.some(acc => acc.id == message.id)){
 			let acc = Object.assign(accs.find(acc => acc.id == message.id), message.data);
 			q(`.right_block>.users>.user[data-id="${message.id}"`).html(`${acc.video ? `<video playsinline muted loop/>
-					<source src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.video}" type="video/webm">
+					<source src="${acc.video}" type="video/${acc.video.match(/\.([a-z]+)$/)[1]}">
 				</video>` : ''}
 				<div class="interface">
 					<div value="user"></div>
 					<div value="open"></div>
 					<div value="refresh"></div>
 				</div>
-				<img class="avatar" src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.avatar || 'avatars/fe/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}"></img>
-				${acc.frame ? `<img class="frame" src="https://cdn.akamai.steamstatic.com/steamcommunity/public/images/${acc.frame}">` : ''}
+				<img class="avatar" src="${acc.avatar || 'not_avatar.jpg'}"></img>
+				${acc.frame ? `<img class="frame" src="${acc.frame}">` : ''}
 				<div class="name">
 					<span>${acc.name || 'No Name'}</span>
 				</div>
