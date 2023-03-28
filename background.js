@@ -52,13 +52,12 @@
 	                }
 					let g_strLanguage = data.match(/g_strLanguage\s*=\s*"([^"]*)";/),
 	                g_CommunityPreferences = data.match(/g_CommunityPreferences\s*=\s*([\s\S]*?);\r\n\t/),
-	                g_bAllowAppImpressions = data.match(/g_bAllowAppImpressions\s*=\s*(.*)\s/),
+	                g_bAllowAppImpressions = data.match(/g_bAllowAppImpressions\s*=\s*(.*);\s/),
 	                g_steamID = data.match(/g_steamID\s*=\s*"([^"]*)";/),
 	                g_sessionID = data.match(/g_sessionID\s*=\s*"([^"]*)";/),
 	                g_SNR = data.match(/g_SNR\s*=\s*'([^']*)';/);
-					if(g_strLanguage && g_CommunityPreferences && g_bAllowAppImpressions && g_steamID && g_sessionID && g_SNR){
+					if(g_strLanguage && g_bAllowAppImpressions && g_steamID && g_sessionID && g_SNR){
 						tab.g_strLanguage = g_strLanguage = g_strLanguage[1];
-						tab.g_CommunityPreferences = JSON.parse(g_CommunityPreferences[1]);
 						tab.g_bAllowAppImpressions = JSON.parse(g_bAllowAppImpressions[1]);
 						tab.g_steamID = g_steamID[1];
 						tab.g_sessionID = g_sessionID[1];
