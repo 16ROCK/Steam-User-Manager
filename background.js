@@ -51,7 +51,6 @@
 						account.ConfLink = null;
 	                }
 					let g_strLanguage = data.match(/g_strLanguage\s*=\s*"([^"]*)";/),
-	                g_CommunityPreferences = data.match(/g_CommunityPreferences\s*=\s*([\s\S]*?);\r\n\t/),
 	                g_bAllowAppImpressions = data.match(/g_bAllowAppImpressions\s*=\s*(.*);\s/),
 	                g_steamID = data.match(/g_steamID\s*=\s*"([^"]*)";/),
 	                g_sessionID = data.match(/g_sessionID\s*=\s*"([^"]*)";/),
