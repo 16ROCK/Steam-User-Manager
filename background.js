@@ -1,4 +1,73 @@
 (() => {
+	let mobile_innerHTML = `<html class="responsive">
+		<head>
+			<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+			<meta name="theme-color" content="#171a21">
+			<title></title>
+			<link href="mobileconf/css/motiva_sans.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/buttons.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/shared_global.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/globalv2.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/modalContent.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/styles_mobileconf.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/motiva_sans.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/html5.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/economy.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/trade.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/profile_tradeoffers.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/shared_responsive.css" rel="stylesheet" type="text/css">
+			<link href="mobileconf/css/header.css" rel="stylesheet" type="text/css">
+		</head>
+		<body class=" responsive_page">
+			<div class="responsive_page_frame with_header">
+				<div class="responsive_local_menu_tab"></div>
+				<div class="responsive_header" style="display: block;">
+					<div class="responsive_header_content">
+						<div class="responsive_header_logo"></div>
+					</div>
+				</div>
+				<div class="responsive_page_content_overlay"></div>
+				<div class="responsive_fixonscroll_ctn nonresponsive_hidden "></div>
+				<div class="responsive_page_content">
+					<div class="responsive_page_template_content">
+						<div id="mobileconf_empty" class="mobileconf_done mobileconf_header">
+							<div>Nothing to confirm</div>
+							<div>There is nothing to confirm at the moment.</div>
+						</div>
+						<div id="mobileconf_done" class="mobileconf_done mobileconf_header" style="display: none">
+							<div>Done</div>
+							<div>Everything is ready, there is no need to confirm anything else.</div>
+						</div>
+						<div id="mobileconf_details" style="display: none;">
+						</div>
+						<div id="mobileconf_buttons" style="display: none;">
+							<div>
+								<div class="mobileconf_button mobileconf_button_cancel"></div>
+								<div class="mobileconf_button mobileconf_button_accept"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</body>
+	</html>`;
+
+	let OffsetTime = 0;
+
+	function getTime(){
+		return (Date.now() / 1000) + (OffsetTime || 0);
+	};
+
+	function getOffsetTime(){
+		req('post', 'https://api.steampowered.com//ITwoFactorService/QueryTime/v1/').done(data => {
+			if('server_time' in data?.response){
+				OffsetTime =  data.response.server_time - getTime();
+			}
+		});
+	};
+	getOffsetTime();
+
 	localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = localStorage.scrollTop = '';
 	const subtle = window.crypto.subtle,
 	importKey = s => subtle.importKey('raw', new Uint8Array(typeof s == 'string' ? /^[\da-f]{40}$/.test(s) ? s.match(/.{1,2}/g).map(h => parseInt(h, 16)) : [...atob(s)].map(s => s.charCodeAt()) : s), {name: 'HMAC', hash: { name: 'SHA-1'}}, false, ['sign']);
@@ -21,7 +90,7 @@
 	};
 
 	async function genConfParams(identity_secret, device_id, steamid, tag = 'conf'){
-	  let time = Math.trunc(Date.now() / 1000);
+	  let time = getTime();
 	  return `p=${device_id}&a=${steamid}&k=${await genConfKey(identity_secret, time, tag)}&t=${time}&m=android&tag=${tag}`;
 	};
 
@@ -33,40 +102,80 @@
 	  return await sha1(id).then(result => result.replace(/^([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12}).*$/, 'android:$1-$2-$3-$4-$5'));
 	};
 	let confTabs = {};
+	function timeSince(creation_time){
+		let time = Date.now() / 1000 - creation_time;
+		return time > 60 ? time > 3600 ? time > 86400 ? `${Math.trunc(time / 86400)} day ago` : `${Math.trunc(time / 3600)} hour ago` : `${Math.trunc(time / 60)} minute ago` : 'Just now';
+	};
 	async function mobileconf(id){
+		let error_count = 0;
 		let account = accounts[id];
 		if(!(confTabs[id] && !confTabs[id].closed)){
 			let httpParams = (tag = 'conf') => genConfParams(account.identity_secret, account.device_id, account.steamid, tag),
 			conf_progress = false;
-			account.ConfLink = account.ConfLink || `https://steamcommunity.com/mobileconf/conf?${await httpParams()}`;
+			account.ConfLink = account.ConfLink || `https://steamcommunity.com/mobileconf/getlist?${await httpParams('list')}`;
 			let tab = window.open('\mobileconf.html', id, 'height=768,width=512,resize=yes,scrollbars=yes');
 			confTabs[id] = tab;
 			tab.document.title = `${account.login} :: Mobile confirmation`;
 			async function refresh(){
 				if(!account.ConfLink){
-					account.ConfLink = `https://steamcommunity.com/mobileconf/conf?${await httpParams()}`;
+					account.ConfLink = `https://steamcommunity.com/mobileconf/getlist?${await httpParams('list')}`;
 				}
-				req('get', account.ConfLink, null, {[`${chrome.runtime.id}_id`]: id}).done(data => {
-	                if(/<div\s*id="mobileconf_empty"\s*class="mobileconf_header">/.test(data)){
-						account.ConfLink = null;
-	                }
-					let g_strLanguage = data.match(/g_strLanguage\s*=\s*"([^"]*)";/),
-	                g_bAllowAppImpressions = data.match(/g_bAllowAppImpressions\s*=\s*(.*);\s/),
-	                g_steamID = data.match(/g_steamID\s*=\s*"([^"]*)";/),
-	                g_sessionID = data.match(/g_sessionID\s*=\s*"([^"]*)";/),
-	                g_SNR = data.match(/g_SNR\s*=\s*'([^']*)';/);
-					if(g_strLanguage && g_bAllowAppImpressions && g_steamID && g_sessionID && g_SNR){
-						tab.g_strLanguage = g_strLanguage = g_strLanguage[1];
-						tab.g_bAllowAppImpressions = JSON.parse(g_bAllowAppImpressions[1]);
-						tab.g_steamID = g_steamID[1];
-						tab.g_sessionID = g_sessionID[1];
-						tab.g_SNR = g_SNR[1];
-					}else{
-						return;
-					}
+				req('get', account.ConfLink, null, {[`${chrome.runtime.id}_id`]: id}).done(async data => {
 					let mobileconf = tab.document.createElement('html');
-					mobileconf.innerHTML = data;
-					mobileconf.querySelector('link[rel="shortcut icon"][type="image/x-icon"]').href = mobileconf.querySelector('#global_actions>.user_avatar.playerAvatar>img').src;
+					mobileconf.innerHTML = mobile_innerHTML;
+	                if(!data.success && !data.needauth){
+						getOffsetTime();
+						account.ConfLink = null;
+						if(data.message && data.detail){
+							mobileconf.querySelector('#mobileconf_empty').innerHTML = `<div>${data.message}</div>
+							<div>${data.detail}</div>`;
+						}else{
+							mobileconf.querySelector('#mobileconf_empty').innerHTML = `<div>Invalid authenticator</div>
+							<div>It looks like your Steam Guard Mobile Authenticator is providing incorrect Steam Guard codes. This could be caused by an inaccurate clock or bad timezone settings on your device. If your time settings are correct, it could be that a different device has been set up to provide the Steam Guard codes for your account, which means the authenticator on this device is no longer valid.</div>`;
+						}
+					}
+					let mobileconf_list = tab.document.createElement('div');
+					mobileconf_list.id = 'mobileconf_list';
+					tab.login = account.login;
+					if(data.conf?.length){
+						for(let item of data.conf){
+							if(item.type == 2){
+								mobileconf_list.insertAdjacentHTML('afterbegin', `<div class="mobileconf_list_entry" id="conf${item.id}" data-confid="${item.id}" data-key="${item.nonce}" data-type="${item.type}" data-creator="${item.creator_id}" data-cancel="${item.cancel}" data-accept="${item.accept}">
+									<div class="mobileconf_list_entry_content">
+										<div class="mobileconf_list_entry_icon">
+											<div style="border: 1px solid transparent;border-color: #D2D2D2;"><img src="${item.icon}" style="width: 32px;"></div>
+										</div>
+										<div class="mobileconf_list_entry_description">
+											<div>${item.type_name} - ${timeSince(item.creation_time)}</div>
+											<div>${item.headline}</div>
+											<div>${item.summary.join('</div><div>')}</div>${item.warn ? `div style="color: #a9842e;">${item.warn}</div>` : ''}
+										</div>
+									</div>
+									<div class="mobileconf_list_entry_sep"></div>
+								</div>`);
+							}
+							if(item.type == 3){
+								mobileconf_list.insertAdjacentHTML('afterbegin', `<div class="mobileconf_list_entry" id="conf${item.id}" data-confid="${item.id}" data-key="${item.nonce}" data-type="${item.type}" data-creator="${item.creator_id}" data-cancel="${item.cancel}" data-accept="${item.accept}">
+									<div class="mobileconf_list_entry_content">
+										<div class="mobileconf_list_entry_icon">
+											<div style="border: 1px solid transparent;border-color: #D2D2D2;"><img src="${item.icon}" style="width: 32px;"></div>
+										</div>
+										<div class="mobileconf_list_checkbox">
+											<input id="multiconf_${item.id}" data-confid="${item.id}" data-key="${item.nonce}" value="1" type="checkbox">
+										</div>
+										<div class="mobileconf_list_entry_description">
+											<div>${item.type_name} - ${item.summary.join(' ')}</div>
+											<div>${item.headline}</div>
+											<div>${timeSince(item.creation_time)}</div>${item.warn ? `div style="color: #ffcc6a;">${item.warn}</div>` : ''}
+										</div>
+									</div>
+									<div class="mobileconf_list_entry_sep"></div>
+								</div>`);
+							}
+						}
+						mobileconf.querySelector('#mobileconf_empty').remove();
+						mobileconf.querySelector('.responsive_page_template_content').prepend(mobileconf_list);
+					}
 					mobileconf.querySelector('title').innerText = `${account.login} :: Mobile confirmation`;
 	                for(let script of mobileconf.querySelectorAll('script')){
 	                	script.remove();
@@ -78,7 +187,7 @@
 						if(src.length){
 					        let script = tab.document.createElement('script');
 					        script.setAttribute('type', 'text/javascript');
-					        script.src = `/mobileconf/${src.shift()}.js`;
+					        script.src = `/mobileconf/scripts/${src.shift()}.js`;
 					        tab.document.querySelector('head').appendChild(script);
 					        script.onload = () => {
 					        	addScripts(src, cb);
@@ -89,16 +198,16 @@
 					}
 					if(conf_progress){
 	                    tab.document.querySelector('.responsive_page_template_content').innerHTML = mobileconf.querySelector('.responsive_page_template_content').outerHTML;
-						addScripts([`${g_strLanguage}/mobileconf`], () => {
+						addScripts(['mobileconf'], () => {
 	                        tab.g_bClickInProgress = false;
 	                        tab.history.replaceState('', '', '/mobileconf');
 						});
-
 					}else{
 						tab.document.querySelector('html').innerHTML = mobileconf.outerHTML;
-						addScripts(['XMLHttpRequest', 'script 1', 'prototype-1.7', 'script 2', '_combined', `${g_strLanguage}/global`, 'jquery-1.11.1.min', 'tooltip', `${g_strLanguage}/shared_global`, 'CDelayedAJAXData', 'script 3', 'jquery-ui-1.9.2.min', `${g_strLanguage}/mobileconf`, 'economy_common', `${g_strLanguage}/economy`, 'modalv2', 'modalContent', `${g_strLanguage}/shared_responsive_adapter`, 'script 4', 'script 5'],
+						addScripts(['XMLHttpRequest', 'script 1', 'prototype-1.7', 'script 2', '_combined', 'global', 'jquery-1.11.1.min', 'tooltip', 'shared_global', 'CDelayedAJAXData', 'script 3', 'jquery-ui-1.9.2.min', 'mobileconf', 'economy_common', 'economy', 'modalv2', 'modalContent', 'shared_responsive_adapter', 'script 4', 'script 5'],
 							() => {
 								conf_progress = true;
+								tab.getOffsetTime = () => getOffsetTime();
 								tab.document.querySelector('.responsive_header').onclick = refresh;
 								tab.document.querySelector('#select_all').onclick = () => tab.document.querySelectorAll('.mobileconf_list_checkbox>input').forEach(checkbox => checkbox.click());
 								tab.GetValueFromLocalURL = (url, timeout, success) => httpParams(new URL(url).searchParams.get('arg1').replace(/\d/g, '')).then(httpParams => success(httpParams));
@@ -111,6 +220,9 @@
 					    subtree: true,
 					    characterDataOldValue: false
 					});
+				}).fail(() => {
+					account.ConfLink = null;
+					if(++error_count < 3) refresh();
 				});
 			};
 			refresh();
@@ -381,76 +493,225 @@
 
 	let activeTab;
 
-	function authorization(id, cb, account = accounts[id]){
-		function getrsakey(code = ''){
-			req('post', `https://${urls[0]}/login/getrsakey/`, {
-	            donotcache: new Date().getTime(),
-	            username: account.login
+	function settoken(id, url, params, cb){
+		req('post', url, params , {[`${chrome.runtime.id}_id`]: id}).always(data => {
+			cb(data?.result == 1);
+		});
+	};
+
+	function ajaxrefresh(id, redir, cb)	{
+		req('post', 'https://login.steampowered.com/jwt/ajaxrefresh', {
+			redir
+		}, {[`${chrome.runtime.id}_id`]: id}).always(data => {
+			if(data?.success){
+				settoken(id, data.login_url, {auth: data.auth, nonce: data.nonce, steamID: data.steamID}, cb);
+			}else{
+				cb(false);
+			}
+		});
+	};
+
+	function authorization(id, cb, account = accounts[id], code){
+		let client_id, request_id, steamid, weak_token, confirmation_type, Timeout,
+		BeginAuthSessionViaCredentials_done = false,
+		website_id = 'Community',
+		device_friendly_name = navigator.userAgent,
+		platform_type = 2,
+		sessionid = cookies.get(id, 'steamcommunity.com', 'sessionid')?.value || Array(24).fill('').map(() => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join(''),
+		device_details = JSON.stringify({device_friendly_name, platform_type});
+		
+		let onFail = () => {
+			chrome.extension.onMessage.addListener(function authCode(message){
+				if(/^(cancel|getCode|authCode|add_acc|edit_acc)$/.test(message.type)){
+					chrome.extension.onMessage.removeListener(authCode);
+					if(message.type == 'authCode'){
+						authorization(id, cb, account);
+					}
+					clearTimeout(Timeout);
+					confirmation_type = 0;
+				}
+			});
+		};
+	
+		let PollAuthSessionStatus = () => {
+			req('post', 'https://api.steampowered.com/IAuthenticationService/PollAuthSessionStatus/v1', {
+				client_id,
+				request_id
 			}, {[`${chrome.runtime.id}_id`]: id}).done(data => {
-				if(data && data.success){
-	                req('post', `https://${urls[0]}/login/dologin/`, {
-	                    donotcache: new Date().getTime(),
-	                    password: RSA.encrypt(account.password, RSA.getPublicKey(data.publickey_mod, data.publickey_exp)),
-	                    username: account.login,
-	                    twofactorcode: code,
-	                    captchagid: -1,
-	                    rsatimestamp: data.timestamp,
-	                    remember_login: true
-	                }, {[`${chrome.runtime.id}_id`]: id}).done(data => {
-	                	if(data){
-	                		if(data.success){
-	                			localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = '';
-	                			let steamid = data.transfer_parameters.steamid, accountid = SteamID(steamid);
-	                			accounts[id] = Object.assign(account, {steamid, accountid});
-	                			ids[accountid] = id;
-	                			chrome.storage.local.set({accounts, ids});
-	                			cb({success: true});
-	                			for(let url of data.transfer_urls){
-	                                req('post', url, {...data.transfer_parameters, remember_login: true}, {[`${chrome.runtime.id}_id`]: id});
-	                            }
-	                            update_profile(id, data => chrome.runtime.sendMessage({type: 'refresh', id: account.accountid, data}));
-	                		}else{
-	                			let message = data.requires_twofactor ? 'Enter twofactor code:' : data.emailauth_needed ? `Enter the code from the mail: ${data.emaildomain}` : data.clear_password_field ? data.message : 'Undefined error';
-		            		    if(data.requires_twofactor || data.emailauth_needed){
-							    	localStorage.dialog_content = `Authorization on the account <span>${account.login}</span><br>${message}`;
-							    	localStorage.dialog_button = '<div class="accept">Accept</div><div class="cancel">Cancel</div>';
-							    }else{
-							    	localStorage.dialog_content = `Authorization on the account <span>${account.login}</span><br><span style="color: red;">${message}</span>`;
-							    	localStorage.dialog_button = '<div class="accept">Try again</div><div class="cancel">Cancel</div>';
-							    	localStorage.dialog_twofa = '';
-							    	localStorage.dialog_LoadingWrapper = '';
-							    }
-								chrome.extension.onMessage.addListener(function authCode(message){
-									if(message.type == 'authCode' || message.type == 'add_acc' || message.type == 'edit_acc'){
-										chrome.extension.onMessage.removeListener(authCode);
+				if('refresh_token' in data?.response){
+					req('post', 'https://login.steampowered.com/jwt/finalizelogin', {
+						nonce: data.response.refresh_token,
+						sessionid,
+						redir: 'https://steamcommunity.com/login/home/?goto=login'
+					}, {[`${chrome.runtime.id}_id`]: id}).done(data => {
+						if('transfer_info' in data){
+							let count = 0,
+							length = data.transfer_info.length,
+							redir = [];
+							function check(success){
+								if(success){
+									localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = '';
+									let accountid = SteamID(steamid);
+									accounts[id] = Object.assign(account, {steamid, accountid});
+									ids[accountid] = id;
+									chrome.storage.local.set({accounts, ids});
+									cb({success: true});
+									update_profile(id, data => chrome.runtime.sendMessage({type: 'refresh', id: account.accountid, data}));
+								}else{
+									onFail();
+									clearTimeout(Timeout);
+									cb({success: false, message: 'Undefined error'});
+								}
+							};
+							for(let item of data.transfer_info){
+								settoken(id, item.url, {...item.params, steamID: data.steamID}, response => {
+									if(!response && !/https:\/\/checkout\./.test(item.url)){
+										redir.push(item.url.replace(/login\/settoken$/, ''));
 									}
-								    if(message.type == 'authCode'){
-								    	if(message.authCode){
-								    		getrsakey(message.authCode);
-								    	}else if(account.shared_secret){
-								    		genAuthCode(account.shared_secret).then(code => getrsakey(code));
-								    	}else{
-								    		getrsakey('');
-								    	}
-								    }
+									if(++count == length){
+										if(!redir.length){
+											check(true);
+										}else{
+											let count = 0,
+											length = redir.length,
+											success = true;
+											for(let url of redir){
+												ajaxrefresh(id, url, response => {
+													success = success && response;
+													if(++count == length){
+														check(success);
+													}
+												});
+											}
+										}
+									}
 								});
-								cb({success: false, message, type: data.requires_twofactor ? 2 : data.emailauth_needed ? 1 : 0});
-	                		}
-	                	}else{
-	                		cb({success: false, message: 'Undefined error'});
-	                	}
-	                }).fail(data => cb({success: false, message: 'Undefined error'}));
+							}
+						}
+					});
+					return;
+				}
+				if(BeginAuthSessionViaCredentials_done && !steamid){
+					return cb({success: false, message: 'Undefined error'});
+				}
+				client_id = data?.response?.new_client_id || client_id;
+				if(!BeginAuthSessionViaCredentials_done || confirmation_type == 2 || confirmation_type == 3){
+					Timeout = setTimeout(PollAuthSessionStatus, 5000);
+				}
+			});
+		};
+		let UpdateAuthSessionWithSteamGuardCode = (code, code_type) => {
+			req('post', 'https://api.steampowered.com/IAuthenticationService/UpdateAuthSessionWithSteamGuardCode/v1', {
+				client_id,
+				steamid,
+				code,
+				code_type
+			}, {[`${chrome.runtime.id}_id`]: id}).fail(() => {
+				onFail();
+				clearTimeout(Timeout);
+				cb({success: false, message: 'Undefined error'});
+			})
+		};
+		let BeginAuthSessionViaCredentials = data => {
+			let encrypted_password = RSA.encrypt(account.password, RSA.getPublicKey(data.response.publickey_mod, data.response.publickey_exp));
+			req('post', 'https://api.steampowered.com/IAuthenticationService/BeginAuthSessionViaCredentials/v1', {
+				account_name: account.login,
+				encrypted_password,
+				encryption_timestamp: data.response.timestamp,
+				remember_login: true,
+				website_id,
+				device_friendly_name,
+				platform_type,
+				device_details,
+				language: 1,
+				persistence: 1,
+				qos_level: 2,
+			}, {[`${chrome.runtime.id}_id`]: id}).done(data => {
+				BeginAuthSessionViaCredentials_done = true;
+				steamid = data?.response?.steamid;
+				client_id = data?.response?.client_id;
+				request_id = data?.response?.request_id;
+				weak_token = data?.response?.weak_token;
+				confirmation_type = data?.response?.allowed_confirmations?.[0]?.confirmation_type;
+				if(steamid && client_id && request_id){
+					if(confirmation_type == 3 && (account.shared_secret || code)){
+						if(code){
+							UpdateAuthSessionWithSteamGuardCode(code, confirmation_type);
+						}else{
+							genAuthCode(account.shared_secret).then(code => UpdateAuthSessionWithSteamGuardCode(code, confirmation_type));
+						}
+					}else{
+						let message = confirmation_type == 3 ? 'Enter twofactor code:' : confirmation_type == 2 ? `Enter the code from the mail: ${data.response.allowed_confirmations[0].associated_message}` : data.response.extended_error_message || 'Undefined error';
+						if(confirmation_type == 2 || confirmation_type == 3){
+							localStorage.dialog_content = `Authorization on the account <span>${account.login}</span><br>${message}`;
+							localStorage.dialog_button = '<div class="accept">Accept</div><div class="cancel">Cancel</div>';
+						}else{
+							localStorage.dialog_content = `Authorization on the account <span>${account.login}</span><br><span style="color: red;">${message}</span>`;
+							localStorage.dialog_button = '<div class="accept">Try again</div><div class="cancel">Cancel</div>';
+							localStorage.dialog_twofa = '';
+							localStorage.dialog_LoadingWrapper = '';
+						}
+						chrome.extension.onMessage.addListener(function authCode(message){
+							if(/^(cancel|getCode|authCode|add_acc|edit_acc)$/.test(message.type)){
+								chrome.extension.onMessage.removeListener(authCode);
+								if(message.type == 'authCode'){
+									if(message.authCode){
+										UpdateAuthSessionWithSteamGuardCode(message.authCode, confirmation_type);
+									}else if(confirmation_type == 3 && account.shared_secret){
+										genAuthCode(account.shared_secret).then(code => UpdateAuthSessionWithSteamGuardCode(code, confirmation_type));
+									}else{
+										clearTimeout(Timeout);
+										authorization(id, cb, account);
+									}
+								}else{
+									clearTimeout(Timeout);
+									confirmation_type = 0;
+								}
+							}
+						});
+						cb({success: false, message, type: confirmation_type == 3 ? 2 : confirmation_type == 2 ? 1 : 0});
+					}
 				}else{
+					onFail();
+					clearTimeout(Timeout);
 					cb({success: false, message: 'Undefined error'});
 				}
-			}).fail(data => cb({success: false, message: 'Undefined error'}));
+			}).fail(() => {
+				onFail();
+				clearTimeout(Timeout);
+				cb({success: false, message: 'Undefined error'});
+			});
 		};
-        account.cookies = account.cookies.filter(cookie => !(cookie.domain == 'steamcommunity.com' && cookie.name == `steamMachineAuth${account.steamid}`));
-		if(account.shared_secret){
-			genAuthCode(account.shared_secret).then(code => getrsakey(code));
-		}else{
-			getrsakey();
-		}
+		let GetPasswordRSAPublicKey = () => {
+			Timeout = setTimeout(PollAuthSessionStatus, 5000);
+			req('get', `https://api.steampowered.com/IAuthenticationService/GetPasswordRSAPublicKey/v1?account_name=${account.login}`, null, {[`${chrome.runtime.id}_id`]: id}).done(data => {
+				BeginAuthSessionViaCredentials(data);
+			}).fail(() => {
+				onFail();
+				clearTimeout(Timeout);
+				cb({success: false, message: 'Undefined error'});
+			});
+		};
+
+		req('post', 'https://api.steampowered.com/IAuthenticationService/BeginAuthSessionViaQR/v1', {
+			device_friendly_name,
+			platform_type,
+			website_id,
+			device_details
+		}, {[`${chrome.runtime.id}_id`]: id}).done(data => {
+			client_id = data?.response?.client_id;
+			request_id = data?.response?.request_id;
+			if(client_id && client_id){
+				GetPasswordRSAPublicKey();
+			}else{
+				onFail();
+				clearTimeout(Timeout);
+				cb({success: false, message: 'Undefined error'});
+			}
+		}).fail(() => {
+			onFail();
+			cb({success: false, message: 'Undefined error'});
+		});
 	};
 
 	async function addAccount(details, cb){
@@ -473,7 +734,7 @@
 					accounts[id] = account;
 				}
 				cb(details);
-			}, account);
+			}, account, details.twofacode);
 		}
 	};
 
@@ -495,7 +756,7 @@
 						accounts[id] = account;
 					}
 					cb(details);
-				}, account);
+				}, account, details.twofacode);
 			}else{
 				accounts[id] = account;
 				chrome.storage.local.set({accounts});
@@ -516,7 +777,7 @@
 
 	function update_profile(id, cb = () => null){
 		if(accounts[id]){
-		    req('get', `https://${urls[0]}/miniprofile/${accounts[id].accountid}/json`, null, {[`${chrome.runtime.id}_id`]: id}).done(data => {
+		    req('get', `https://${urls[0]}/miniprofile/${accounts[id].accountid}/json?t=${Date.now()}`, null, {[`${chrome.runtime.id}_id`]: id}).done(data => {
 		        if(data && data.avatar_url){
 		        	let account = accounts[id];
                     cb({
@@ -575,7 +836,7 @@
 	    host = url.hostname,
 	    tab = tabs[details.tabId],
 	    id = requestIds[details.requestId];
-		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id].urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
+		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id]?.urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
 	        let index = details.requestHeaders.findIndex(header => /^cookie$/i.test(header.name));
 	        if(index < 0){
 	            index = details.requestHeaders.length;
@@ -606,7 +867,7 @@
 	    if(id){
 	    	delete requestIds[details.requestId];
 	    }
-		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id].urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
+		if((id || tab) && /^https?:$/.test(url.protocol) && accounts[id || tab[0].id]?.urls.map(url => url.hostname).concat(...urls).some(url => checkDomain(d(host), d(url)))){
             let items = details.responseHeaders.filter(header => /^set-cookie$/i.test(header.name)).map(header => cookies.set(id || tab[0].id, false, url.protocol, url.hostname, url.pathname, header.value))
             if(items.length){
                 for(let tabId in tabs){
@@ -763,7 +1024,7 @@
 				    frame: accounts[ids[id]].frame,
 				    id,
 				    login: accounts[ids[id]].login,
-				    lvl: accounts[ids[id]].level,
+				    level: accounts[ids[id]].level,
 				    name: accounts[ids[id]].name,
                     tabs: accounts[ids[id]].urls.map(tab => tab.n),
 				    secret: {
@@ -790,11 +1051,17 @@
 	        	create_tabs(id, message.link || `https://${urls[0]}/my/`, message.active, tab => {
 	        		if(!message.link){
 		        		logged_in(id, logged_in => {
-		        			if(!logged_in && accounts[id] && accounts[id].shared_secret){
-		        				authorization(id, result => {
-		        					chrome.tabs.reload(tab.id);
-		        				});
-		        			}
+							if(!logged_in && accounts[id]){
+								ajaxrefresh(id, `https://${urls[0]}/my/`, success => {
+									if(!success){
+										if(accounts[id].shared_secret){
+											authorization(id, result => {
+												chrome.tabs.reload(tab.id);
+											});
+										}
+									}
+								});
+							}
 		        		});
 	        		}
 	        	});

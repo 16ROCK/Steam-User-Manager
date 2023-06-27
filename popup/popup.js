@@ -32,10 +32,6 @@
 		q('#background').class.add('active').css('opacity', 0.5);
 	};
 
-	chrome.runtime.sendMessage('getTabs', response => {
-		tabs = response;
-	});
-
 	function add_info(){
 		rm_info.class('rm_info');
 		rm_link.class.remove('active').val('').css.text('--max_px: 0px');
@@ -262,102 +258,14 @@
 	};
 
 	function show_accs(){
-		let users = q('.right_block>.users').html(''),
+		q('.right_block>.users>.user').remove();
+		let users = jQuery('.right_block>.users'),
 		search = new RegExp(q('#search_acc').val(), 'i');
-		for(let acc of accs){
-			if(acc.login.search(search) >= 0 || (acc.name || 'No Name').search(search) >= 0){
-				users.afterbegin(`<div class="user" data-id="${acc.id}">
-					${acc.video ? `<video playsinline muted loop/>
-						<source src="${acc.video}" type="video/${acc.video.match(/\.([a-z]+)$/)[1]}">
-					</video>` : ''}
-					<div class="interface">
-						<div value="user"></div>
-						<div value="open"></div>
-						<div value="refresh"></div>
-					</div>
-					<img class="avatar" src="${acc.avatar || 'not_avatar.jpg'}"></img>
-					${acc.frame ? `<img class="frame" src="${acc.frame}">` : ''}
-					<div class="name">
-						<span>${acc.name || 'No Name'}</span>
-					</div>
-					<div class="login">
-						<span>${acc.login}</span>
-					</div>
-					<div class="external_links">
-					    <img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}
-					</div>
-					<div class="level">
-						<span>Level</span>
-						<div>
-							<div class="${lvlToStrClass(acc.lvl || 0)}">
-								<span class="friendPlayerLevelNum">${acc.lvl || 0}</span>
-							</div>
-						</div>
-					</div>
-					<img class="menu" src="svg/menu.svg">
-				</div>`);
-			}
-		}
-		if(localStorage.active){
-			q(`.right_block>.users>.user[data-id="${localStorage.active}"`).class.add('active');
-		}
-		q('.right_block>.users>.user').on('mouseenter', function(event){
-		    q(this).select('.users>.user>video').action('play');
-		}).on('mouseleave', function(event){
-		    let video = q(this).select('.users>.user>video');
-		    video.action('pause');
-			video.action('currentTime', 0);
-		}).on('contextmenu', contextmenu);
-		q('.right_block>.users>.user>.menu').on('click', contextmenu);
-
-		q('.right_block>.users>.user>.avatar, .right_block>.users>.user>.frame').on('mousedown', function(event){
-		    let id = q(this).parent().data('id');
-		    if(!event.button){
-			delete localStorage.active;
-			q(`.right_block>.users>.user`).class.remove('active');
-		        chrome.runtime.sendMessage({type: 'switch', id});
-		    }
-		    if(event.button == 1){
-		        chrome.runtime.sendMessage({type: 'go_over', id, active: true});
-		    }
-		});
-
-		q('.external_links').on('mousedown', '.link', function(event){
-			if(event.button < 2){
-				if(q(this).data('type') == 'round_menu'){
-					if(!event.button){
-				    	round_menu(q(this).parent().parent().class.add('selected').data('id'));
-					}
-				}else{
-					let n = q(this).data('n'),
-					id = q(this).parent().parent().data('id');
-					let acc = accs.find(acc => acc.id == id);
-					acc.tabs.sort((a, b) => a == n ? -1 : b == n ? 1 : 0);
-					q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
-					chrome.runtime.sendMessage({type: 'go_over', id, link: tabs[id][n].link, n, active: !event.button});
-				}
-			}
-		});
-
-		q('.right_block>.users>.user>.interface>div[value="user"]').on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			delete localStorage.active;
-			q(`.right_block>.users>.user`).class.remove('active');
-			chrome.runtime.sendMessage({type: 'switch', id});
-		});
-
-		q('.right_block>.users>.user>.interface>div[value="open"]').on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'go_over', id, active: true});
-		});
-
-		q('.right_block>.users>.user>.interface>div[value="refresh"]').on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'refresh', id});
-		});
+		users.append(accs.filter(i => search.test(i.login) || search.test(i.name || 'No Name')).map(i => i.div));
 	};
 
 	q('div#background, #account>.close, .dialog>.close').on('mousedown', function(){
+		chrome.runtime.sendMessage({type: 'cancel'});
 		active.confirm = false;
 		q('div#menu, .dialog, div#background, .round_menu').class.remove('active');
 		q('.users>.user').class.remove('selected');
@@ -441,6 +349,7 @@
 			selected = undefined;
 		});
 		q('.dialog>.button>.cancel').on('click', () => {
+			chrome.runtime.sendMessage({type: 'cancel'});
 			q('.dialog, #background').class.remove('active');
 			localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = '';
 			selected = undefined;
@@ -494,7 +403,7 @@
 		q(`#account>input#${q(this).class.toggle('active').attr('for')}`).val('').attr.toggle('disabled');
 	});
 
-	if(/YaBrowser/i.test(navigator.appVersion) && location.hash != '#import'){
+	if(navigator.userAgentData.brands.some(i => i.brand == 'YaBrowser') && location.hash != '#import'){
 		q('#account>#import_maFile').on('click', () => chrome.tabs.create({url: chrome.extension.getURL('popup/popup.html#import'), active: true}));
 	}else{
 		history.replaceState('', '', '/popup/popup.html');
@@ -537,7 +446,7 @@
 		forms.type = q('#account').class.has('edit') ? 'edit_acc' : 'add_acc';
 		if(forms.account_name){
 			if(forms.type == 'add_acc' ? forms.password : true){
-			    if(!document.forms.account.shared_secret || document.forms.account.shared_secret.disabled || /^[\da-f]{40}$|^[\da-zA-Z+\/]{27}=$/.test(forms.shared_secret) || (forms.type == 'edit_acc' && !forms.shared_secret)){
+			    if(!document.forms.account.shared_secret || (document.forms.account.shared_secret.name == 'twofacode' && document.forms.account.shared_secret.value.length >= 5 ) || document.forms.account.shared_secret.disabled || /^[\da-f]{40}$|^[\da-zA-Z+\/]{27}=$/.test(forms.shared_secret) || (forms.type == 'edit_acc' && !forms.shared_secret)){
 				    if(document.forms.account.identity_secret.disabled || /^[\da-f]{40}$|^[\da-zA-Z+\/]{27}=$/.test(forms.identity_secret) || (forms.type == 'edit_acc' && !forms.identity_secret)){
 				    	if(document.forms.account.device_id.disabled || /^android:[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/.test(forms.device_id) || (forms.type == 'edit_acc' && !forms.device_id)){
 				    		chrome.runtime.sendMessage({type: forms.type, data: forms});
@@ -553,17 +462,121 @@
 
 	function getAccs(){
 		chrome.runtime.sendMessage('getAccs', result => {
-			accs = result;
-			show_accs();
-			if(localStorage.active){
-				q(`.right_block>.users>.user[data-id="${localStorage.active}"`).class.add('active');
+			for(let i1 of result){
+				for(let i2 of accs){
+					if(i1.id == i2.id){
+						i1.div = i2.div;
+						break;
+					}
+				}
 			}
+			accs = result;
+			for(let acc of accs){
+				if('div' in acc){
+					continue;
+				}
+				acc.div = document.createElement('div');
+				acc.div.className = 'user';
+				if(localStorage.active == acc.id){
+					jQuery(acc.div).addClass('active');
+				}
+				acc.div.dataset.id = acc.id;
+				acc.div.innerHTML = `${acc.video ? `<video playsinline muted loop/>
+					<source src="${acc.video}" type="video/${acc.video.match(/\.([a-z]+)$/)[1]}">
+				</video>` : ''}
+				<div class="interface">
+					<div value="user"></div>
+					<div value="open"></div>
+					<div value="refresh"></div>
+				</div>
+				<img class="avatar" src="${acc.avatar || 'not_avatar.jpg'}"></img>
+				${acc.frame ? `<img class="frame" src="${acc.frame}">` : ''}
+				<div class="name">
+					<span>${acc.name || 'No Name'}</span>
+				</div>
+				<div class="login">
+					<span>${acc.login}</span>
+				</div>
+				<div class="external_links">
+					<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}
+				</div>
+				<div class="level">
+					<span>Level</span>
+					<div>
+						<div class="${lvlToStrClass(acc.level || 0)}">
+							<span class="friendPlayerLevelNum">${acc.level || 0}</span>
+						</div>
+					</div>
+				</div>
+				<img class="menu" src="svg/menu.svg">`;
+
+				q(acc.div).on('mouseenter', () => {
+					acc.div.querySelector('video')?.play().then(null, () => null);
+				}).on('mouseleave', () => {
+					let video = acc.div.querySelector('video');
+					video?.pause();
+					if(video?.currentTime){
+						video.currentTime = 0;
+					}
+				}).on('contextmenu', contextmenu);
+
+				q(acc.div.querySelector('.menu')).on('click', contextmenu);
+
+				q(acc.div.querySelectorAll('.avatar, .frame')).on('mousedown', event => {
+					let id = acc.id;
+					if(!event.button){
+					delete localStorage.active;
+					q(acc.div).class.remove('active');
+						chrome.runtime.sendMessage({type: 'switch', id});
+					}
+					if(event.button == 1){
+						chrome.runtime.sendMessage({type: 'go_over', id, active: true});
+					}
+				});
+
+				q(acc.div.querySelector('.interface>div[value="user"]')).on('click', () => {
+					let id = acc.id;
+					delete localStorage.active;
+					q(acc.div).class.remove('active');
+					chrome.runtime.sendMessage({type: 'switch', id});
+				});
+				q(acc.div.querySelector('.interface>div[value="open"]')).on('click', () => {
+					let id = acc.id;
+					chrome.runtime.sendMessage({type: 'go_over', id, active: true});
+				});
+				q(acc.div.querySelector('.interface>div[value="refresh"]')).on('click', () => {
+					let id = acc.id;
+					chrome.runtime.sendMessage({type: 'refresh', id});
+				});
+
+			}
+			show_accs();
 			q('.users').action('scrollTop', localStorage.scrollTop || 0);
 			logged_in();
 		});
 	};
 
-	getAccs();
+	chrome.runtime.sendMessage('getTabs', response => {
+		tabs = response;
+		getAccs();
+	});
+
+	jQuery('.right_block>.users').on('mousedown', '.external_links .link', function(event){
+		if(event.button < 2){
+			if(q(this).data('type') == 'round_menu'){
+				if(!event.button){
+					round_menu(q(this).parent().parent().class.add('selected').data('id'));
+				}
+			}else{
+				let n = q(this).data('n'),
+				id = q(this).parent().parent().data('id');
+				let acc = accs.find(acc => acc.id == id);
+				acc.tabs.sort((a, b) => a == n ? -1 : b == n ? 1 : 0);
+				q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
+				chrome.runtime.sendMessage({type: 'go_over', id, link: tabs[id][n].link, n, active: !event.button});
+			}
+		}
+	});
 
 	if(localStorage.dialog_LoadingWrapper || localStorage.dialog_twofa){
 	    dialog(localStorage.dialog_heading, localStorage.dialog_content, localStorage.dialog_button, localStorage.dialog_LoadingWrapper, localStorage.dialog_twofa);
@@ -573,6 +586,7 @@
 			dialog(null, localStorage.dialog_content, localStorage.dialog_button = '', localStorage.dialog_LoadingWrapper = true, localStorage.dialog_twofa = '');
 		});
 		q('.dialog>.button>.cancel').on('click', () => {
+			chrome.runtime.sendMessage({type: 'cancel'});
 			q('.dialog, #background').class.remove('active');
 			localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = '';
 		});
@@ -585,9 +599,9 @@
 			if(message.data.success){
 				q('#background, .dialog').class.remove('active');
 				localStorage.dialog_heading = localStorage.dialog_content = localStorage.dialog_button = localStorage.dialog_twofa = localStorage.dialog_LoadingWrapper = '';
-				getAccs();
 				chrome.runtime.sendMessage('getTabs', response => {
 					tabs = response;
+					getAccs();
 				});
 			}else{
 			    if(message.data.type){
@@ -620,87 +634,49 @@
 			q('#code').text(message.code);
 		}
 		if(message.type == 'refresh' && accs.some(acc => acc.id == message.id)){
-			let acc = Object.assign(accs.find(acc => acc.id == message.id), message.data);
-			q(`.right_block>.users>.user[data-id="${message.id}"`).html(`${acc.video ? `<video playsinline muted loop/>
-					<source src="${acc.video}" type="video/${acc.video.match(/\.([a-z]+)$/)[1]}">
-				</video>` : ''}
-				<div class="interface">
-					<div value="user"></div>
-					<div value="open"></div>
-					<div value="refresh"></div>
+			let acc = Object.assign(accs.find(i => i.id == message.id), message.data);
+			acc.div.querySelector('.name>span').innerHTML = message.data.name;
+			acc.div.querySelector('div.level').innerHTML = `<span>Level</span>
+			<div>
+				<div class="${lvlToStrClass(message.data.level || 0)}">
+					<span class="friendPlayerLevelNum">${message.data.level || 0}</span>
 				</div>
-				<img class="avatar" src="${acc.avatar || 'not_avatar.jpg'}"></img>
-				${acc.frame ? `<img class="frame" src="${acc.frame}">` : ''}
-				<div class="name">
-					<span>${acc.name || 'No Name'}</span>
-				</div>
-				<div class="login">
-					<span>${acc.login}</span>
-				</div>
-				<div class="external_links">
-					<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}
-				</div>
-				<div class="level">
-					<span>Level</span>
-					<div>
-						<div class="${lvlToStrClass(acc.level || 0)}">
-							<span class="friendPlayerLevelNum">${acc.level || 0}</span>
-						</div>
-					</div>
-				</div>
-				<img class="menu" src="svg/menu.svg">`);
-		}
-
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.external_links`).on('mousedown', '.link', function(event){
-			if(event.button < 2){
-				if(q(this).data('type') == 'round_menu'){
-					if(!event.button){
-				    	round_menu(q(this).parent().parent().class.add('selected').data('id'));
-					}
-				}else{
-					let n = q(this).data('n'),
-					id = q(this).parent().parent().data('id');
-					let acc = accs.find(acc => acc.id == id);
-					acc.tabs.sort((a, b) => a == n ? -1 : b == n ? 1 : 0);
-					q(`.right_block>.users>.user[data-id="${id}"]>.external_links`).html(`<img class="link" src="svg/link.svg" data-type="round_menu">${acc.tabs.slice(0, 5).map(n => `<img class="link" src="${tabs[acc.id][n].favicon}" data-n="${n}">`).join('')}`);
-					chrome.runtime.sendMessage({type: 'go_over', id, link: tabs[id][n].link, n, active: !event.button});
-				}
+			</div>`;
+			let frame = acc.div.querySelector('.frame'),
+			avatar = acc.div.querySelector('.avatar');
+			acc.div.querySelector('video')?.remove();
+			if('video' in message.data){
+				acc.div.insertAdjacentHTML('afterbegin', `<video playsinline muted loop/>
+					<source src="${message.data.video}" type="video/${message.data.video.match(/\.([a-z]+)$/)[1]}">
+				</video>`);
+			}else{
+				delete acc.video;
 			}
-		});
-
-		q(`.right_block>.users>.user[data-id="${message.id}"]`).on('mouseenter', function(event){
-		    q(this).select('.users>.user>video').action('play');
-		}).on('mouseleave', function(event){
-		    let video = q(this).select('.users>.user>video');
-		    video.action('pause');
-			video.action('currentTime', 0);
-		}).on('contextmenu', contextmenu);
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.menu`).on('click', contextmenu);
-
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.avatar, .right_block>.users>.user[data-id="${message.id}"]>.frame`).on('mousedown', function(event){
-		    let id = q(this).parent().data('id');
-		    if(!event.button){
-				delete localStorage.active;
-				q(`.right_block>.users>.user`).class.remove('active');
-		        chrome.runtime.sendMessage({type: 'switch', id});
-		    }
-		    if(event.button == 1){
-		        chrome.runtime.sendMessage({type: 'go_over', id, active: true});
-		    }
-		});
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="user"]`).on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			delete localStorage.active;
-			q(`.right_block>.users>.user`).class.remove('active');
-			chrome.runtime.sendMessage({type: 'switch', id});
-		});
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="open"]`).on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'go_over', id, active: true});
-		});
-		q(`.right_block>.users>.user[data-id="${message.id}"]>.interface>div[value="refresh"]`).on('click', function(){
-			let id = q(this).parent().parent().data('id');
-			chrome.runtime.sendMessage({type: 'refresh', id});
-		});
+			avatar.src = message.data.avatar;
+			if('frame' in message.data){
+				if(frame){
+					frame.src = message.data.frame;
+				}else{
+					frame = document.createElement('img');
+					frame.className = 'frame';
+					frame.src = message.data.frame;
+					q(frame).on('mousedown', event => {
+						let id = message.id;
+						if(!event.button){
+						delete localStorage.active;
+						q(acc.div).class.remove('active');
+							chrome.runtime.sendMessage({type: 'switch', id});
+						}
+						if(event.button == 1){
+							chrome.runtime.sendMessage({type: 'go_over', id, active: true});
+						}
+					});
+					avatar.after(frame);
+				}
+			}else{
+				delete acc.frame;
+				frame?.remove();
+			}
+		}
 	});
 })();

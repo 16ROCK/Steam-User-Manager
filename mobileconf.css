@@ -45,6 +45,7 @@ body{
 
 #mobileconf_list{
 	display: block;
+	padding-top: 5px;
 }
 
 #mobileconf_empty{

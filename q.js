@@ -185,7 +185,7 @@ function q(s){
        	};
         e.on = (a, b, c) => {
             let g = (a, b, c, d) => {
-                for(let e of d.path){
+                for(let e of d.path || []){
                 	for(let f of a.querySelectorAll(b)){
                         if(e == f) {
                             c.bind(f)(d);

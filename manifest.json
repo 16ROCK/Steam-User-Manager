@@ -1,26 +1,26 @@
 {
-    "name": "Steam User Manager",
-    "version": "0.0.5",
-    "manifest_version": 2,
-    "icons": {
-        "16": "icon16.png",
-        "48": "icon48.png",
-        "128": "icon128.png"
-    },
-    "browser_action": {
-        "default_icon": "icon128.png",
-        "default_title": "SUM",
-        "default_popup": "popup/popup.html"
-    },
-    "short_name": "SUM",
-    "background" : {
-        "scripts" : ["jsbn.js", "rsa.js", "req.js", "background.js"]
-    },
-    "permissions": ["<all_urls>", "tabs", "webRequest", "webRequestBlocking", "storage", "cookies"],
-    "content_scripts": [{
-        "matches": ["<all_urls>"],
-        "run_at": "document_start",
-        "all_frames": true,
-        "js": ["script.js"]
-    }]
+   "background": {
+      "scripts": [ "jsbn.js", "rsa.js", "req.js", "background.js" ]
+   },
+   "browser_action": {
+      "default_icon": "icon128.png",
+      "default_popup": "popup/popup.html",
+      "default_title": "SUM"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "script.js" ],
+      "matches": [ "<all_urls>" ],
+      "run_at": "document_start"
+   } ],
+   "icons": {
+      "128": "icon128.png",
+      "16": "icon16.png",
+      "48": "icon48.png"
+   },
+   "manifest_version": 2,
+   "name": "Steam User Manager",
+   "permissions": [ "<all_urls>", "tabs", "webRequest", "webRequestBlocking", "storage", "cookies" ],
+   "short_name": "SUM",
+   "version": "0.0.6"
 }
