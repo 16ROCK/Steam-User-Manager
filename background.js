@@ -111,7 +111,8 @@
 		let account = accounts[id];
 		if(!(confTabs[id] && !confTabs[id].closed)){
 			let httpParams = (tag = 'conf') => genConfParams(account.identity_secret, account.device_id, account.steamid, tag),
-			conf_progress = false;
+			conf_progress = false,
+			account_ConfLink = account.ConfLink;
 			account.ConfLink = account.ConfLink || `https://steamcommunity.com/mobileconf/getlist?${await httpParams('list')}`;
 			let tab = window.open('\mobileconf.html', id, 'height=768,width=512,resize=yes,scrollbars=yes');
 			confTabs[id] = tab;
@@ -123,7 +124,7 @@
 				req('get', account.ConfLink, null, {[`${chrome.runtime.id}_id`]: id}).done(async data => {
 					let mobileconf = tab.document.createElement('html');
 					mobileconf.innerHTML = mobile_innerHTML;
-	                if(!data.success && !data.needauth){
+	                		if(!data.success && !data.needauth){
 						getOffsetTime();
 						account.ConfLink = null;
 						if(data.message && data.detail){
@@ -133,6 +134,13 @@
 							mobileconf.querySelector('#mobileconf_empty').innerHTML = `<div>Invalid authenticator</div>
 							<div>It looks like your Steam Guard Mobile Authenticator is providing incorrect Steam Guard codes. This could be caused by an inaccurate clock or bad timezone settings on your device. If your time settings are correct, it could be that a different device has been set up to provide the Steam Guard codes for your account, which means the authenticator on this device is no longer valid.</div>`;
 						}
+					}
+					if(data.success && !data.needauth && account_ConfLink != account.ConfLink){
+						chrome.storage.local.set({accounts});
+					}
+					if(data.needauth){
+						mobileconf.querySelector('#mobileconf_empty').innerHTML = `<div>Login</div>
+							<div>To see, accept or cancel your confirmation listings.</div>`;
 					}
 					let mobileconf_list = tab.document.createElement('div');
 					mobileconf_list.id = 'mobileconf_list';
@@ -225,7 +233,28 @@
 					if(++error_count < 3) refresh();
 				});
 			};
-			refresh();
+			function needauth(){
+				logged_in(id, logged_in => {
+					if(!logged_in){
+						ajaxrefresh(id, `https://${urls[0]}/my/`, success => {
+							if(!success){
+								if(accounts[id]?.shared_secret){
+									authorization(id, result => {
+										if(result.success){
+											refresh();
+										}
+									});
+								}
+							}else{
+								refresh();
+							}
+						});
+					}else{
+						refresh();
+					}
+				});
+			};
+			needauth();
 		}else{
 			confTabs[id].focus();
 		}
@@ -828,6 +857,22 @@
 	    if(details.initiator == `chrome-extension://${chrome.runtime.id}`){
 	        let id = details.requestHeaders.find(header => header.name == `${chrome.runtime.id}_id`);
 	        if(id){
+				let Referer = details.requestHeaders.findIndex(o => o.name == 'Referer'),
+				Origin = details.requestHeaders.findIndex(o => o.name == 'Origin');
+				if(Origin >= 0){
+					details.requestHeaders[Origin].value = 'https://steamcommunity.com';
+				}else{
+					details.requestHeaders.push({
+						name: 'Origin', value: 'https://steamcommunity.com'
+					});
+				}
+				if(Referer >= 0){
+					details.requestHeaders[Referer].value = 'https://steamcommunity.com/';
+				}else{
+					details.requestHeaders.push({
+						name: 'Referer', value: 'https://steamcommunity.com/'
+					});
+				}
 	        	requestIds[details.requestId] = id.value;
 	        }
 	        details.requestHeaders = details.requestHeaders.filter(header => !new RegExp(`^${chrome.runtime.id}_[a-z]+$`).test(header.name));
@@ -1071,16 +1116,24 @@
 	        	cookies.switch(id, () => {
 		        	logged_in(id, logged_in => {
 		        		if(!logged_in){
-		        			if(accounts[id] && accounts[id].shared_secret){
-			        			authorization(id, result => {
-			        				if(result.success){
-			        					cookies.switch(id);
-			        					chrome.runtime.sendMessage({type: 'active', id: message.id});
-			        				}
-			        			});
-		        			}
+							ajaxrefresh(id, `https://${urls[0]}/my/`, success => {
+								if(!success){
+									if(accounts[id] && accounts[id].shared_secret){
+										authorization(id, result => {
+											if(result.success){
+												cookies.switch(id);
+												chrome.runtime.sendMessage({type: 'active', id: message.id});
+											}
+										});
+									}
+								}else{
+									cookies.switch(id);
+									chrome.runtime.sendMessage({type: 'active', id: message.id});
+								}
+							});
 		        		}else{
-		        			chrome.runtime.sendMessage({type: 'active', id: message.id});
+							cookies.switch(id);
+							chrome.runtime.sendMessage({type: 'active', id: message.id});
 		        		}
 		        	});
 	        	});
